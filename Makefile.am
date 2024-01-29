@@ -1,37 +1,74 @@
-AUTOMAKE_OPTIONS = foreign nostdinc 1.9.6
+AUTOMAKE_OPTIONS = foreign subdir-objects nostdinc 1.9.6
 ACLOCAL_AMFLAGS = -I m4 --install
 
-MSVCFILES = msvc_ver.inc buildconf.bat
+# Specify our include paths here, and do it relative to $(top_srcdir) and
+# $(top_builddir), to ensure that these paths which belong to the library
+# being currently built and tested are searched before the library which
+# might possibly already be installed in the system.
+
+AM_CPPFLAGS = -I$(top_builddir)/include \
+              -I$(top_builddir)/src/lib \
+              -I$(top_srcdir)/include \
+              -I$(top_srcdir)/src/lib
+
+lib_LTLIBRARIES = libcares.la
+
+man_MANS = $(MANPAGES)
 
 # adig and ahost are just sample programs and thus not mentioned with the
 # regular sources and headers
-EXTRA_DIST = AUTHORS CHANGES README.cares $(man_MANS) RELEASE-NOTES	\
- c-ares-config.cmake.in libcares.pc.cmake libcares.pc.in buildconf get_ver.awk \
- maketgz TODO README.msvc $(MSVCFILES) INSTALL.md README.md LICENSE.md \
- CMakeLists.txt Makefile.dj Makefile.m32 Makefile.netware Makefile.msvc \
- Makefile.Watcom AUTHORS CONTRIBUTING.md SECURITY.md TODO
+EXTRA_DIST = Makefile.inc config-win32.h CMakeLists.txt \
+  ares_config.h.in ares_config.h.cmake cares.rc \
+  $(CSOURCES) $(HHEADERS) config-dos.h
 
+DISTCLEANFILES = ares_config.h
 
-CLEANFILES = $(PDFPAGES) $(HTMLPAGES)
+DIST_SUBDIRS =
 
-DISTCLEANFILES = include/ares_build.h
+AM_LDFLAGS =
 
-DIST_SUBDIRS = include src test docs
+libcares_la_LDFLAGS_EXTRA =
 
-SUBDIRS = @BUILD_SUBDIRS@
+if CARES_LT_SHLIB_USE_VERSION_INFO
+libcares_la_LDFLAGS_EXTRA += -version-info @CARES_VERSION_INFO@
+endif
 
-pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA = libcares.pc
+if CARES_LT_SHLIB_USE_NO_UNDEFINED
+libcares_la_LDFLAGS_EXTRA += -no-undefined
+endif
 
-# where to install the c-ares headers
-libcares_ladir = $(includedir)
+if CARES_LT_SHLIB_USE_MIMPURE_TEXT
+libcares_la_LDFLAGS_EXTRA += -mimpure-text
+endif
 
+libcares_la_LDFLAGS = $(AM_LDFLAGS) $(libcares_la_LDFLAGS_EXTRA)
 
-# Make files named *.dist replace the file without .dist extension
-dist-hook:
-	find $(distdir) -name "*.dist" -exec rm {} \;
-	(distit=`find $(srcdir) -name "*.dist"`; \
-	for file in $$distit; do \
-	  strip=`echo $$file | sed -e s/^$(srcdir)// -e s/\.dist//`; \
-	  cp $$file $(distdir)$$strip; \
-	done)
+# Add -Werror if defined
+CFLAGS += @CARES_CFLAG_EXTRAS@
+
+if USE_CPPFLAG_CARES_STATICLIB
+AM_CPPFLAGS += $(CPPFLAG_CARES_STATICLIB)
+endif
+
+libcares_la_CFLAGS_EXTRA =
+
+libcares_la_CPPFLAGS_EXTRA = -DCARES_BUILDING_LIBRARY
+
+if DOING_CARES_SYMBOL_HIDING
+libcares_la_CFLAGS_EXTRA += $(CFLAG_CARES_SYMBOL_HIDING)
+libcares_la_CPPFLAGS_EXTRA += -DCARES_SYMBOL_HIDING
+endif
+
+include $(top_srcdir)/aminclude_static.am
+libcares_la_LIBS = $(CODE_COVERAGE_LIBS)
+libcares_la_CFLAGS_EXTRA += $(CODE_COVERAGE_CFLAGS)
+libcares_la_CPPFLAGS_EXTRA += $(CODE_COVERAGE_CPPFLAGS)
+
+libcares_la_CFLAGS = $(AM_CFLAGS) $(libcares_la_CFLAGS_EXTRA)
+
+libcares_la_CPPFLAGS = $(AM_CPPFLAGS) $(libcares_la_CPPFLAGS_EXTRA)
+
+# Makefile.inc provides the CSOURCES and HHEADERS defines
+include Makefile.inc
+
+libcares_la_SOURCES = $(CSOURCES) $(HHEADERS)
